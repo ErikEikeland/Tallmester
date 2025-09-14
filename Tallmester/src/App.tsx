@@ -1,19 +1,27 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-// Importerer hovedkomponentene for de tre ulike rollene i spillet
-import TallmesterApp from "./components/TallmesterApp"; // Lokal enkelversjon av spillet
-import GameMaster from "./components/GameMaster"; // Lærervisning, styrer spillet og viser QR-kode
-import PlayerClient from "./components/PlayerClient"; // Spillerklient for mobil, der elever leverer svar
+// Importerer hovedkomponentene for de ulike rollene
+import TallmesterApp from "./components/TallmesterApp";
+import GameMaster from "./components/GameMaster";
+import PlayerClient from "./components/PlayerClient";
 import WelcomeMenu from "./components/WelcomeMenu";
 
 export default function App() {
   return (
-    // Oppretter en Router for navigasjon mellom ulike ruter/visninger
     <Router>
       <Routes>
-         <Route path="/" element={<WelcomeMenu />} />
+        {/* Startside med menyvalg */}
+        <Route path="/" element={<WelcomeMenu />} />
+
+        {/* Lokal testvisning (uten nett, QR-kode eller database) */}
         <Route path="/local" element={<TallmesterApp />} />
+
+        {/* Lærerens spillvisning */}
+        <Route path="/game" element={<GameMaster />} />
+
+        {/* Elevenes mobilvisning (kobles til via gameId i URL) */}
+        <Route path="/join" element={<PlayerClient />} />
       </Routes>
     </Router>
   );
