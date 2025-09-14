@@ -64,14 +64,22 @@ export function listenToGame(
   });
 }
 
-// ✅ Endrer spillstatus ("waiting", "started", etc.)
+// ✅ Endrer spillstatus OG legger til currentChallenge og startedAt
 export async function updateGameStatus(
   gameId: string,
   updates: Record<string, any>
 ) {
   const gameRef = doc(db, "games", gameId);
-  await updateDoc(gameRef, updates);
+  await updateDoc(gameRef, {
+    ...updates,
+    currentChallenge: {
+      digits: [1, 2, 3, 4], // ← Du kan gjøre dette dynamisk senere
+      limit: 30
+    },
+    startedAt: serverTimestamp()
+  });
 }
+
 
 // ✅ Lytter på spillere
 export function listenToPlayers(
@@ -104,3 +112,4 @@ export function listenToAnswers(
     callback(answers);
   });
 }
+
