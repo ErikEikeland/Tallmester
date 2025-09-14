@@ -263,19 +263,22 @@ export default function TallmesterApp({
 
       <div className="mb-4">
         <h3 className="font-semibold">🔢 Spilleroversikt:</h3>
-        {players.map((p, i) => (
-          <div key={i} className="mb-2 p-2 border rounded">
-            <div className="font-semibold">
-              {p.avatar} {p.name}
+        {players.map((p, i) => {
+          const hasAnswered = submissions.some((s) => s.name === p.name);
+          return (
+            <div key={i} className="mb-2 p-2 border rounded">
+              <div className="font-semibold">
+                {p.avatar} {p.name} {hasAnswered && "✅"}
+              </div>
+              <div className="text-sm">
+                Tilgjengelige sifre: {p.digits?.join(", ")}
+              </div>
             </div>
-            <div className="text-sm">
-              Tilgjengelige sifre: {p.digits?.join(", ")}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {submissions.length > 0 && (
+      {roundPoints.length > 0 && submissions.length > 0 && (
         <div className="mb-4">
           <h3 className="font-semibold">📨 Svar fra spillerne:</h3>
           <ul>
@@ -310,3 +313,4 @@ export default function TallmesterApp({
     </div>
   );
 }
+
