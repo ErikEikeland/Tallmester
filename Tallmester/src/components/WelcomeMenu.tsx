@@ -24,7 +24,7 @@ export default function WelcomeMenu() {
           📱 Elev (Spiller)
         </button>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/local")}
           className="w-full px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-xl shadow"
         >
           🎮 Lokal testvisning
