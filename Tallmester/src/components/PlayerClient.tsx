@@ -42,6 +42,7 @@ export default function PlayerClient() {
       if (playerId && gameData.players) {
         const me = gameData.players.find((p: any) => p.id === playerId);
         if (me) {
+          console.log("📲 Oppdaterer spiller fra Firestore:", me); // 👈 nyttig logg
           setDigits(me.digits || []);
           setScore(me.score ?? 0);
         }
@@ -59,6 +60,10 @@ export default function PlayerClient() {
   }
 
   async function handleSubmit() {
+    if (!answer) {
+  setError("Du må skrive inn et tall.");
+  return;
+}
     const value = parseInt(answer);
     const answerDigits = answer.split("").map(Number);
     const valid =
@@ -114,9 +119,13 @@ export default function PlayerClient() {
       <p>🎯 Poeng: {score}</p>
       <p>
         🔢 Tilgjengelige sifre:{" "}
-        {digits.length > 0 ? digits.join(", ") : "Ingen"}
+        {digits.length > 0 ? digits.join(", ") : "Venter på tildeling fra lærer..."}
       </p>
 
+<p style={{ fontSize: "0.8em", color: "#888" }}>
+  🔑 Din ID: {playerId}
+</p>
+      
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
       ) : (
@@ -136,3 +145,4 @@ export default function PlayerClient() {
     </div>
   );
 }
+
