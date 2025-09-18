@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { joinGame, submitAnswer, listenToGame, listenToPlayer } from "../firestoreService";
+import {
+  joinGame,
+  submitAnswer,
+  listenToGame,
+  listenToPlayer,
+} from "../firestoreService";
 
 export default function PlayerClient() {
   const [searchParams] = useSearchParams();
@@ -26,14 +31,17 @@ export default function PlayerClient() {
     return true;
   };
 
-  // 👉 hent lagret playerId (overlever refresh)
+  // 👉 Last playerId fra localStorage ved refresh
   useEffect(() => {
     if (!gameId || playerId) return;
     const saved = localStorage.getItem(`tm:${gameId}:playerId`);
-    if (saved) setPlayerId(saved);
+    if (saved) {
+      console.log("🔁 Gjenoppretter playerId fra lagring:", saved);
+      setPlayerId(saved);
+    }
   }, [gameId, playerId]);
 
-  // 🔁 Lytt på game (runde osv.)
+  // 🔁 Lytt til runde-endring
   useEffect(() => {
     if (!gameId) return;
     const unsubGame = listenToGame(gameId, (gameData) => {
@@ -47,28 +55,27 @@ export default function PlayerClient() {
     return () => unsubGame?.();
   }, [gameId, round]);
 
-  // 🔁 Lytt på EGET spiller-dokument for digits/score
+  // ✅ Lytt til egen spiller – når playerId er tilgjengelig (etter join eller refresh)
   useEffect(() => {
     if (!gameId || !playerId) return;
-    console.log("🔗 Subscribing to player doc", { gameId, playerId });
+    console.log("🔗 Starter lytter på spiller", playerId);
     const unsub = listenToPlayer(gameId, playerId, (me) => {
-      if (!me) {
-        console.warn("⚠️ No player data yet");
-        return;
+      if (me) {
+        console.log("📲 Oppdaterer spiller:", me);
+        setDigits(me.digits || []);
+        setScore(me.score ?? 0);
       }
-      console.log("📲 Player snapshot:", me);
-      setDigits(me.digits || []);
-      setScore(me.score ?? 0);
     });
     return () => unsub?.();
   }, [gameId, playerId]);
 
+  // ✅ Bli med i spillet
   async function handleJoin() {
     if (gameId && name.trim() && avatar) {
       const id = await joinGame(gameId, name.trim(), avatar);
       setPlayerId(id);
       localStorage.setItem(`tm:${gameId}:playerId`, id);
-      console.log("✅ Joined game with id:", id);
+      console.log("✅ Bli med med id:", id);
     } else {
       setError("Skriv inn navn og velg avatar.");
     }
@@ -79,6 +86,7 @@ export default function PlayerClient() {
       setError("Du må skrive inn et tall.");
       return;
     }
+
     const value = parseInt(answer, 10);
     const answerDigits = answer.split("").map(Number);
     const valid =
@@ -134,7 +142,9 @@ export default function PlayerClient() {
       <p>🎯 Poeng: {score}</p>
       <p>
         🔢 Tilgjengelige sifre:{" "}
-        {digits.length > 0 ? digits.join(", ") : "Venter på tildeling fra lærer..."}
+        {digits.length > 0
+          ? digits.join(", ")
+          : "Venter på tildeling fra lærer..."}
       </p>
 
       <p style={{ fontSize: "0.8em", color: "#888" }}>
