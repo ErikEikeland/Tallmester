@@ -129,3 +129,20 @@ export async function syncPlayers(gameId: string, players: any[]) {
   });
   await Promise.all(updates);
 }
+
+// ✅ NY: Lytter på én spesifikk spiller
+export function listenToPlayer(
+  gameId: string,
+  playerId: string,
+  callback: (player: any | null) => void
+) {
+  const ref = doc(db, "games", gameId, "players", playerId);
+  return onSnapshot(ref, (snap) => {
+    if (!snap.exists()) {
+      console.warn("⚠️ Player document does not exist:", { gameId, playerId });
+      callback(null);
+      return;
+    }
+    callback({ id: snap.id, ...snap.data() });
+  });
+}
