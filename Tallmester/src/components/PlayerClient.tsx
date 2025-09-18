@@ -166,7 +166,9 @@ export default function PlayerClient() {
       <p style={{ fontSize: "0.8em", color: "#888" }}>
         🔑 Din ID: {playerId}
       </p>
- <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
+      console.log("🎯 Viser hent-knapp", { digits, playerId });
+ <button onClick={hentPåNytt} style={{ marginBottom: "1rem", backgroundColor: "yellow" }}>
+   console.log("🧪 Klikket på hent-knapp");
         🔁 Hent sifre på nytt
       </button>
       
@@ -193,5 +195,6 @@ export default function PlayerClient() {
     </div>
   );
 }
+
 
 
