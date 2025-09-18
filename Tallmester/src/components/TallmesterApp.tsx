@@ -71,14 +71,15 @@ export default function TallmesterApp({
           Math.floor(Math.random() * 10)
         );
 
-        const initializedPlayers = playersFromFirebase.map((p, i) => ({
-          id: p.id ?? uuidv4(), // beholder ID om den finnes
-          name: p.name || `Spiller ${i + 1}`,
-          avatar: p.avatar || "👾",
-          digits: [...randomDigits],
-          used: [],
-          score: 0,
-        }));
+       const initializedPlayers = playersFromFirebase.map((p, i) => ({
+  id: p.id, // 🔥 behold ekte Firestore-id
+  name: p.name || `Spiller ${i + 1}`,
+  avatar: p.avatar || "👾",
+  digits: [...randomDigits],
+  used: [],
+  score: 0,
+}));
+
 
         setPlayers(initializedPlayers);
         setScores(Array(initializedPlayers.length).fill(0));
@@ -320,3 +321,4 @@ export default function TallmesterApp({
     </div>
   );
 }
+
