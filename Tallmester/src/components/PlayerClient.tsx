@@ -166,7 +166,9 @@ export default function PlayerClient() {
       <p style={{ fontSize: "0.8em", color: "#888" }}>
         🔑 Din ID: {playerId}
       </p>
-
+ <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
+        🔁 Hent sifre på nytt
+      </button>
       
 
       {submitted ? (
@@ -186,11 +188,10 @@ export default function PlayerClient() {
         </>
       )}
 
-      <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
-        🔁 Hent sifre på nytt
-      </button>
+     
       
     </div>
   );
 }
+
 
