@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { joinGame, submitAnswer, listenToGame } from "../firestoreService";
 import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // 🔑 må være riktig import til din konfig
+import { db } from "../firebase"; // ⬅️ viktig!
 
 export default function PlayerClient() {
   const [searchParams] = useSearchParams();
@@ -18,6 +18,7 @@ export default function PlayerClient() {
   const [score, setScore] = useState<number>(0);
   const [error, setError] = useState("");
 
+  // enkel bag-sjekk
   const canUseDigits = (available: number[], request: number[]) => {
     const bag = [...available];
     for (const d of request) {
@@ -28,45 +29,47 @@ export default function PlayerClient() {
     return true;
   };
 
-  // 🔁 Lytter både til spill-status og spillerens egne data
+  // hent ev. playerId fra localStorage (så brukeren overlever refresh)
+  useEffect(() => {
+    if (!gameId || playerId) return;
+    const saved = localStorage.getItem(`tm:${gameId}:playerId`);
+    if (saved) setPlayerId(saved);
+  }, [gameId, playerId]);
+
+  // lytter på game (runde osv.)
   useEffect(() => {
     if (!gameId) return;
-
-    // 🔄 Spill-status: rundeteller og tilbakestilling av svar
-    const unsubscribeGame = listenToGame(gameId, (gameData) => {
-      if (gameData.round !== undefined && gameData.round !== round) {
+    const unsubGame = listenToGame(gameId, (gameData) => {
+      if (gameData?.round !== undefined && gameData.round !== round) {
         setRound(gameData.round);
         setSubmitted(false);
         setAnswer("");
         setError("");
       }
     });
+    return () => unsubGame?.();
+  }, [gameId, round]);
 
-    // 🔄 Lytter på spillerens eget dokument i Firestore
-    let unsubscribePlayer: (() => void) | undefined;
-
-    if (playerId) {
-      const playerRef = doc(db, "games", gameId, "players", playerId);
-      unsubscribePlayer = onSnapshot(playerRef, (docSnap) => {
-        const data = docSnap.data();
-        if (data) {
-          console.log("📲 Oppdaterer spiller fra Firestore:", data);
-          setDigits(data.digits || []);
-          setScore(data.score ?? 0);
-        }
-      });
-    }
-
-    return () => {
-      unsubscribeGame?.();
-      unsubscribePlayer?.();
-    };
-  }, [gameId, playerId, round]);
+  // lytter på EGET spiller-dokument for digits/score
+  useEffect(() => {
+    if (!gameId || !playerId) return;
+    const ref = doc(db, "games", gameId, "players", playerId);
+    const unsub = onSnapshot(ref, (snap) => {
+      const data = snap.data();
+      if (data) {
+        console.log("📲 Spiller oppdatert fra Firestore:", data);
+        setDigits(data.digits || []);
+        setScore(data.score ?? 0);
+      }
+    });
+    return () => unsub();
+  }, [gameId, playerId]);
 
   async function handleJoin() {
-    if (gameId && name && avatar) {
-      const id = await joinGame(gameId, name, avatar);
+    if (gameId && name.trim() && avatar) {
+      const id = await joinGame(gameId, name.trim(), avatar);
       setPlayerId(id);
+      localStorage.setItem(`tm:${gameId}:playerId`, id);
     }
   }
 
@@ -75,8 +78,7 @@ export default function PlayerClient() {
       setError("Du må skrive inn et tall.");
       return;
     }
-
-    const value = parseInt(answer);
+    const value = parseInt(answer, 10);
     const answerDigits = answer.split("").map(Number);
     const valid =
       !isNaN(value) &&
@@ -131,9 +133,7 @@ export default function PlayerClient() {
       <p>🎯 Poeng: {score}</p>
       <p>
         🔢 Tilgjengelige sifre:{" "}
-        {digits.length > 0
-          ? digits.join(", ")
-          : "Venter på tildeling fra lærer..."}
+        {digits.length > 0 ? digits.join(", ") : "Venter på tildeling fra lærer..."}
       </p>
 
       <p style={{ fontSize: "0.8em", color: "#888" }}>
@@ -159,4 +159,3 @@ export default function PlayerClient() {
     </div>
   );
 }
-
