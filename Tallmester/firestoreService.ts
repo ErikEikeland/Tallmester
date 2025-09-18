@@ -12,6 +12,12 @@ export const joinGame = async (gameId, playerData) => {
   return playerRef.id;
 };
 
+export async function getPlayerData(gameId: string, playerId: string) {
+  const ref = doc(db, "games", gameId, "players", playerId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
 export const submitAnswer = async (gameId, playerId, submission) => {
   const playerRef = doc(db, "games", gameId, "players", playerId);
   await updateDoc(playerRef, { submission });
