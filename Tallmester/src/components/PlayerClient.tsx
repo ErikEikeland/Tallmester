@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { joinGame, submitAnswer, listenToGame } from "../firestoreService";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // ⬅️ viktig!
+import { joinGame, submitAnswer, listenToGame, listenToPlayer } from "../firestoreService";
 
 export default function PlayerClient() {
   const [searchParams] = useSearchParams();
@@ -18,7 +16,6 @@ export default function PlayerClient() {
   const [score, setScore] = useState<number>(0);
   const [error, setError] = useState("");
 
-  // enkel bag-sjekk
   const canUseDigits = (available: number[], request: number[]) => {
     const bag = [...available];
     for (const d of request) {
@@ -29,14 +26,14 @@ export default function PlayerClient() {
     return true;
   };
 
-  // hent ev. playerId fra localStorage (så brukeren overlever refresh)
+  // 👉 hent lagret playerId (overlever refresh)
   useEffect(() => {
     if (!gameId || playerId) return;
     const saved = localStorage.getItem(`tm:${gameId}:playerId`);
     if (saved) setPlayerId(saved);
   }, [gameId, playerId]);
 
-  // lytter på game (runde osv.)
+  // 🔁 Lytt på game (runde osv.)
   useEffect(() => {
     if (!gameId) return;
     const unsubGame = listenToGame(gameId, (gameData) => {
@@ -50,19 +47,20 @@ export default function PlayerClient() {
     return () => unsubGame?.();
   }, [gameId, round]);
 
-  // lytter på EGET spiller-dokument for digits/score
+  // 🔁 Lytt på EGET spiller-dokument for digits/score
   useEffect(() => {
     if (!gameId || !playerId) return;
-    const ref = doc(db, "games", gameId, "players", playerId);
-    const unsub = onSnapshot(ref, (snap) => {
-      const data = snap.data();
-      if (data) {
-        console.log("📲 Spiller oppdatert fra Firestore:", data);
-        setDigits(data.digits || []);
-        setScore(data.score ?? 0);
+    console.log("🔗 Subscribing to player doc", { gameId, playerId });
+    const unsub = listenToPlayer(gameId, playerId, (me) => {
+      if (!me) {
+        console.warn("⚠️ No player data yet");
+        return;
       }
+      console.log("📲 Player snapshot:", me);
+      setDigits(me.digits || []);
+      setScore(me.score ?? 0);
     });
-    return () => unsub();
+    return () => unsub?.();
   }, [gameId, playerId]);
 
   async function handleJoin() {
@@ -70,6 +68,9 @@ export default function PlayerClient() {
       const id = await joinGame(gameId, name.trim(), avatar);
       setPlayerId(id);
       localStorage.setItem(`tm:${gameId}:playerId`, id);
+      console.log("✅ Joined game with id:", id);
+    } else {
+      setError("Skriv inn navn og velg avatar.");
     }
   }
 
