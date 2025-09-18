@@ -5,6 +5,7 @@ import {
   submitAnswer,
   listenToGame,
   listenToPlayer,
+  getPlayerData, // 🆕
 } from "../firestoreService";
 
 export default function PlayerClient() {
@@ -69,7 +70,22 @@ export default function PlayerClient() {
     return () => unsub?.();
   }, [gameId, playerId]);
 
-  // ✅ Bli med i spillet
+  // 🔁 Manuell fallback: hent spillerdata direkte fra Firestore
+  async function hentPåNytt() {
+    if (!gameId || !playerId) {
+      console.warn("🚫 Kan ikke hente – mangler gameId eller playerId");
+      return;
+    }
+    const data = await getPlayerData(gameId, playerId);
+    console.log("🔁 Manuell henting fra Firestore:", data);
+    if (data) {
+      setDigits(data.digits || []);
+      setScore(data.score ?? 0);
+    } else {
+      setError("Fant ikke spillerdata ved manuell henting.");
+    }
+  }
+
   async function handleJoin() {
     if (gameId && name.trim() && avatar) {
       const id = await joinGame(gameId, name.trim(), avatar);
@@ -150,6 +166,10 @@ export default function PlayerClient() {
       <p style={{ fontSize: "0.8em", color: "#888" }}>
         🔑 Din ID: {playerId}
       </p>
+
+      <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
+        🔁 Hent sifre på nytt
+      </button>
 
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
