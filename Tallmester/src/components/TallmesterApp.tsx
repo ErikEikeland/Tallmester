@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { updateGameStatus } from "../firestoreService";
+import { v4 as uuidv4 } from "uuid"; // Husk å installere uuid: npm install uuid
 
 interface Player {
+  id: string; // 🔑 Ny identifikator
   name: string;
   avatar: string;
   digits?: number[];
@@ -22,6 +24,17 @@ interface Props {
   gameId: string;
   gameStatus: string;
 }
+
+// 🔎 Hjelpefunksjon: sjekker om request kan lages med available
+const canUseDigits = (available: number[] = [], request: number[] = []) => {
+  const bag = [...available];
+  for (const d of request) {
+    const i = bag.indexOf(d);
+    if (i === -1) return false;
+    bag.splice(i, 1);
+  }
+  return true;
+};
 
 export default function TallmesterApp({
   playersFromFirebase = [],
@@ -73,6 +86,7 @@ export default function TallmesterApp({
 
   const challenge = initialChallenges[round];
 
+  // 🧠 Start spillet – gi alle spillerne en unik ID og like start-sifre
   useEffect(() => {
     if (
       (playersFromFirebase?.length ?? 0) > 0 &&
@@ -82,20 +96,30 @@ export default function TallmesterApp({
       const randomDigits = Array.from({ length: 10 }, () =>
         Math.floor(Math.random() * 10)
       );
+
       const initializedPlayers = playersFromFirebase.map((p, i) => ({
+        id: uuidv4(), // 🔐 Unik spiller-ID
         name: p.name || `Spiller ${i + 1}`,
         avatar: p.avatar || "👾",
         digits: [...randomDigits],
         used: [],
         score: 0,
       }));
+
       setPlayers(initializedPlayers);
       setScores(Array(initializedPlayers.length).fill(0));
       setGameStarted(true);
       setRound(0);
+
+      // 🚀 Lagre initielt spillstatus (inkl. player ID-er og sifre)
+      updateGameStatus(gameId, {
+        round: 0,
+        players: initializedPlayers,
+      });
     }
   }, [playersFromFirebase, gameStarted, gameStatus]);
 
+  // ✅ Valider og håndter innkomne svar
   useEffect(() => {
     const newAnswers = answersFromFirebase.filter(
       (a) => !processedAnswersRef.current.has(a.name + a.value)
@@ -108,11 +132,15 @@ export default function TallmesterApp({
     );
 
     const roundSubs = newAnswers.map((a) => {
+      const player = players.find((p) => p.name === a.name);
+      const hasDigits = canUseDigits(player?.digits || [], a.digits || []);
+
       const isPartall = a.value % 2 === 0;
       const isDelelig3 = a.value % 3 === 0;
       const isTresifret = a.value >= 100 && a.value <= 999;
 
       const valid =
+        hasDigits &&
         a.valid &&
         (challenge.id !== 2 || isPartall) &&
         (challenge.id !== 4 || isDelelig3) &&
@@ -130,6 +158,7 @@ export default function TallmesterApp({
     setSubmissions(allSubs);
 
     let validSubs = allSubs.filter((s) => s.valid);
+
     if (challenge.id === 2) {
       const valueCounts = validSubs.reduce((acc, cur) => {
         acc[cur.value] = (acc[cur.value] || 0) + 1;
@@ -156,7 +185,7 @@ export default function TallmesterApp({
     let lastValue = null;
     let sameRankCount = 0;
 
-    ranked.forEach((s, i) => {
+    ranked.forEach((s) => {
       if (s.value !== lastValue) {
         place += sameRankCount;
         sameRankCount = 1;
@@ -174,6 +203,7 @@ export default function TallmesterApp({
     setRoundPoints(pointsThisRound);
   }, [answersFromFirebase]);
 
+  // ⏭️ Neste runde: fjern brukte sifre og oppdater Firestore
   const nextRound = () => {
     const updatedPlayers = players.map((p) => {
       const submission = submissions.find((s) => s.name === p.name);
@@ -203,11 +233,15 @@ export default function TallmesterApp({
       }
       return { ...p };
     });
+
     setPlayers(updatedPlayers);
     setSubmissions([]);
     setRound((prev) => {
       const newRound = prev + 1;
-      updateGameStatus(gameId, { round: newRound });
+      updateGameStatus(gameId, {
+        round: newRound,
+        players: updatedPlayers, // 🔁 Viktig! Oppdater sifre til Firestore
+      });
       return newRound;
     });
     setRoundPoints([]);
