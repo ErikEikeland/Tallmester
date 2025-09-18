@@ -67,9 +67,13 @@ export default function TallmesterApp({
         !gameStarted &&
         gameStatus === "started"
       ) {
+         console.log("🔁 [TallmesterApp] Forsøker å starte spill...");
+          console.log("👥 Spillere fra Firestore:", playersFromFirebase);
+        
         const randomDigits = Array.from({ length: 10 }, () =>
           Math.floor(Math.random() * 10)
         );
+          console.log("🎲 Genererte sifre:", randomDigits);
 
        const initializedPlayers = playersFromFirebase.map((p, i) => ({
   id: p.id, // 🔥 behold ekte Firestore-id
@@ -80,17 +84,27 @@ export default function TallmesterApp({
   score: 0,
 }));
 
-
+ console.log("📦 Initialiserte spillere:", initializedPlayers);
         setPlayers(initializedPlayers);
         setScores(Array(initializedPlayers.length).fill(0));
         setGameStarted(true);
         setRound(0);
 
-        await syncPlayers(gameId, initializedPlayers); // 🆕 Synkroniser sifre
-        await updateGameStatus(gameId, { round: 0 });  // 🆕 Oppdater runde
+      try {
+        await syncPlayers(gameId, initializedPlayers);
+        console.log("✅ syncPlayers fullført");
+      } catch (err) {
+        console.error("❌ syncPlayers feilet:", err);
       }
-    };
 
+      try {
+        await updateGameStatus(gameId, { round: 0 });
+        console.log("✅ updateGameStatus fullført");
+      } catch (err) {
+        console.error("❌ updateGameStatus feilet:", err);
+      }
+    }
+  };
     startGame();
   }, [playersFromFirebase, gameStarted, gameStatus]);
 
@@ -321,4 +335,5 @@ export default function TallmesterApp({
     </div>
   );
 }
+
 
