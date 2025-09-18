@@ -14,13 +14,14 @@ export default function GameMaster() {
   const [players, setPlayers] = useState<any[]>([]);
   const [gameId, setGameId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<any[]>([]);
-  const [gameStarted, setGameStarted] = useState(false);
   const [gameStatus, setGameStatus] = useState("waiting");
 
+  // Oppretter nytt spill og starter lytting
   useEffect(() => {
     const startNewGame = async () => {
       const id = await createGame({ status: "waiting" });
       setGameId(id);
+
       listenToPlayers(id, (firebasePlayers) => {
         setPlayers(firebasePlayers);
       });
@@ -33,6 +34,7 @@ export default function GameMaster() {
     startNewGame();
   }, []);
 
+  // Lytt til statusendringer i spillet
   useEffect(() => {
     if (!gameId) return;
     const unsub = listenToGame(gameId, (gameData) => {
@@ -41,12 +43,10 @@ export default function GameMaster() {
     return () => unsub?.();
   }, [gameId]);
 
-  const playersToUse =
-    players.length > 0 ? players : [{ name: "Testspiller", avatar: "🧙" }];
-
   return (
     <div style={{ padding: "1rem" }}>
       <h1 className="text-2xl font-bold mb-2">🎩 Tallmester – Lærervisning</h1>
+
       {gameId && (
         <div className="mb-4">
           <p>
@@ -62,7 +62,7 @@ export default function GameMaster() {
 
       {gameStatus === "waiting" && (
         <button
-          onClick={() => updateGameStatus(gameId, { status: "started" })}
+          onClick={() => updateGameStatus(gameId!, { status: "started" })}
           className="px-4 py-2 bg-green-600 text-white rounded-xl mt-2"
         >
           🚀 Start spillet
@@ -71,22 +71,33 @@ export default function GameMaster() {
 
       <div className="mb-4">
         <h2 className="font-semibold">👥 Spillere som har koblet til:</h2>
-        <ul>
-          {players.map((p, i) => (
-            <li key={i}>
-              {p.avatar} {p.name}
-            </li>
-          ))}
-        </ul>
+        {players.length > 0 ? (
+          <ul>
+            {players.map((p, i) => (
+              <li key={i}>
+                {p.avatar} {p.name}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>⏳ Ingen spillere har koblet til ennå.</p>
+        )}
       </div>
 
-      {players.length > 0 && gameStatus === "started" && (
-        <TallmesterApp
-          gameId={gameId!}
-          playersFromFirebase={playersToUse}
-          answersFromFirebase={answers}
-          gameStatus={gameStatus}
-        />
+      {gameStatus === "started" && (
+        <>
+          <p className="mb-2">📨 {answers.length} svar registrert så langt</p>
+          {players.length > 0 ? (
+            <TallmesterApp
+              gameId={gameId!}
+              playersFromFirebase={players}
+              answersFromFirebase={answers}
+              gameStatus={gameStatus}
+            />
+          ) : (
+            <p>🔒 Venter på minst én spiller før runden starter.</p>
+          )}
+        </>
       )}
     </div>
   );
