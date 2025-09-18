@@ -13,6 +13,7 @@ export default function PlayerClient() {
   const [submitted, setSubmitted] = useState(false);
   const [round, setRound] = useState<number | null>(null);
   const [digits, setDigits] = useState<number[]>([]);
+  const [score, setScore] = useState<number>(0); // 🆕 Nytt state
   const [error, setError] = useState("");
 
   // 🔁 Lokal validering: har spilleren sifrene de prøver å bruke?
@@ -28,9 +29,8 @@ export default function PlayerClient() {
 
   useEffect(() => {
     if (!gameId) return;
-    const unsubscribe = listenToGame(gameId, (gameData) => {
-      console.log("Ny gamedata:", gameData);
 
+    const unsubscribe = listenToGame(gameId, (gameData) => {
       if (gameData.round !== undefined && gameData.round !== round) {
         setRound(gameData.round);
         setSubmitted(false);
@@ -38,14 +38,16 @@ export default function PlayerClient() {
         setError("");
       }
 
-      // 🔍 Finn denne spilleren og oppdater deres digits
+      // 🔍 Finn spilleren og oppdater lokale data
       if (playerId && gameData.players) {
         const me = gameData.players.find((p: any) => p.id === playerId);
-        if (me?.digits) {
-          setDigits(me.digits);
+        if (me) {
+          setDigits(me.digits || []);
+          setScore(me.score ?? 0);
         }
       }
     });
+
     return () => unsubscribe?.();
   }, [gameId, round, playerId]);
 
@@ -107,8 +109,14 @@ export default function PlayerClient() {
       <h2>
         {avatar} {name}
       </h2>
+
       {round !== null && <p>🔁 Runde {round + 1}</p>}
-      <p>Tilgjengelige sifre: {digits.join(", ") || "Ingen"}</p>
+      <p>🎯 Poeng: {score}</p>
+      <p>
+        🔢 Tilgjengelige sifre:{" "}
+        {digits.length > 0 ? digits.join(", ") : "Ingen"}
+      </p>
+
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
       ) : (
@@ -116,7 +124,10 @@ export default function PlayerClient() {
           <input
             placeholder="Svar"
             value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
+            onChange={(e) => {
+              const clean = e.target.value.replace(/\D/g, ""); // Kun tall
+              setAnswer(clean);
+            }}
           />
           <button onClick={handleSubmit}>Send inn</button>
           {error && <p style={{ color: "red" }}>{error}</p>}
