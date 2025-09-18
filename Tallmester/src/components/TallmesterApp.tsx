@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { updateGameStatus } from "../firestoreService";
-import { v4 as uuidv4 } from "uuid"; // Husk å installere uuid: npm install uuid
+import { updateGameStatus, syncPlayers } from "../firestoreService"; // 🆕
+import { v4 as uuidv4 } from "uuid";
 
 interface Player {
-  id: string; // 🔑 Ny identifikator
+  id: string;
   name: string;
   avatar: string;
   digits?: number[];
@@ -25,7 +25,6 @@ interface Props {
   gameStatus: string;
 }
 
-// 🔎 Hjelpefunksjon: sjekker om request kan lages med available
 const canUseDigits = (available: number[] = [], request: number[] = []) => {
   const bag = [...available];
   for (const d of request) {
@@ -48,81 +47,56 @@ export default function TallmesterApp({
   const [submissions, setSubmissions] = useState<Answer[]>([]);
   const [scores, setScores] = useState<number[]>([]);
   const [roundPoints, setRoundPoints] = useState<number[]>([]);
-
   const processedAnswersRef = useRef<Set<string>>(new Set());
 
   const initialChallenges = [
-    {
-      id: 1,
-      title: "Høyeste tall",
-      description: "Lag det høyeste mulige tallet",
-      points: [3, 2, 1, 0],
-    },
-    {
-      id: 2,
-      title: "Laveste unike partall",
-      description: "Laveste tall unike partall",
-      points: [4, 2, 1, 0],
-    },
-    {
-      id: 3,
-      title: "Nærmest 5000",
-      description: "Lag tallet nærmest 5000",
-      points: [5, 3, 2, 0],
-    },
-    {
-      id: 4,
-      title: "Høyeste delelig på 3",
-      description: "Høyest tall som er delelig på 3",
-      points: [4, 2, 1, 0],
-    },
-    {
-      id: 5,
-      title: "Størst tresifret",
-      description: "Lag størst mulig tresifret tall",
-      points: [3, 2, 1, 0],
-    },
+    { id: 1, title: "Høyeste tall", description: "Lag det høyeste mulige tallet", points: [3, 2, 1, 0] },
+    { id: 2, title: "Laveste unike partall", description: "Laveste tall unike partall", points: [4, 2, 1, 0] },
+    { id: 3, title: "Nærmest 5000", description: "Lag tallet nærmest 5000", points: [5, 3, 2, 0] },
+    { id: 4, title: "Høyeste delelig på 3", description: "Høyest tall som er delelig på 3", points: [4, 2, 1, 0] },
+    { id: 5, title: "Størst tresifret", description: "Lag størst mulig tresifret tall", points: [3, 2, 1, 0] },
   ];
 
   const challenge = initialChallenges[round];
 
-  // 🧠 Start spillet – gi alle spillerne en unik ID og like start-sifre
+  // ✅ Start spill og synkroniser sifre med Firestore før første runde
   useEffect(() => {
-    if (
-      (playersFromFirebase?.length ?? 0) > 0 &&
-      !gameStarted &&
-      gameStatus === "started"
-    ) {
-      const randomDigits = Array.from({ length: 10 }, () =>
-        Math.floor(Math.random() * 10)
-      );
+    const startGame = async () => {
+      if (
+        (playersFromFirebase?.length ?? 0) > 0 &&
+        !gameStarted &&
+        gameStatus === "started"
+      ) {
+        const randomDigits = Array.from({ length: 10 }, () =>
+          Math.floor(Math.random() * 10)
+        );
 
-      const initializedPlayers = playersFromFirebase.map((p, i) => ({
-        id: uuidv4(), // 🔐 Unik spiller-ID
-        name: p.name || `Spiller ${i + 1}`,
-        avatar: p.avatar || "👾",
-        digits: [...randomDigits],
-        used: [],
-        score: 0,
-      }));
+        const initializedPlayers = playersFromFirebase.map((p, i) => ({
+          id: p.id ?? uuidv4(), // beholder ID om den finnes
+          name: p.name || `Spiller ${i + 1}`,
+          avatar: p.avatar || "👾",
+          digits: [...randomDigits],
+          used: [],
+          score: 0,
+        }));
 
-      setPlayers(initializedPlayers);
-      setScores(Array(initializedPlayers.length).fill(0));
-      setGameStarted(true);
-      setRound(0);
+        setPlayers(initializedPlayers);
+        setScores(Array(initializedPlayers.length).fill(0));
+        setGameStarted(true);
+        setRound(0);
 
-      // 🚀 Lagre initielt spillstatus (inkl. player ID-er og sifre)
-      updateGameStatus(gameId, {
-        round: 0,
-        players: initializedPlayers,
-      });
-    }
+        await syncPlayers(gameId, initializedPlayers); // 🆕 Synkroniser sifre
+        await updateGameStatus(gameId, { round: 0 });  // 🆕 Oppdater runde
+      }
+    };
+
+    startGame();
   }, [playersFromFirebase, gameStarted, gameStatus]);
 
   // ✅ Valider og håndter innkomne svar
   useEffect(() => {
     const newAnswers = answersFromFirebase.filter(
-      (a) => !processedAnswersRef.current.has(a.name + a.value)
+      (a) => a && !processedAnswersRef.current.has(a.name + a.value)
     );
 
     if (newAnswers.length === 0) return;
@@ -204,7 +178,7 @@ export default function TallmesterApp({
   }, [answersFromFirebase]);
 
   // ⏭️ Neste runde: fjern brukte sifre og oppdater Firestore
-  const nextRound = () => {
+  const nextRound = async () => {
     const updatedPlayers = players.map((p) => {
       const submission = submissions.find((s) => s.name === p.name);
       if (submission && submission.valid) {
@@ -235,13 +209,12 @@ export default function TallmesterApp({
     });
 
     setPlayers(updatedPlayers);
+    await syncPlayers(gameId, updatedPlayers); // 🆕 Synk etter runde
+
     setSubmissions([]);
     setRound((prev) => {
       const newRound = prev + 1;
-      updateGameStatus(gameId, {
-        round: newRound,
-        players: updatedPlayers, // 🔁 Viktig! Oppdater sifre til Firestore
-      });
+      updateGameStatus(gameId, { round: newRound });
       return newRound;
     });
     setRoundPoints([]);
@@ -347,4 +320,3 @@ export default function TallmesterApp({
     </div>
   );
 }
-
