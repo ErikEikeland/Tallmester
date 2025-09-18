@@ -167,9 +167,7 @@ export default function PlayerClient() {
         🔑 Din ID: {playerId}
       </p>
 
-      <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
-        🔁 Hent sifre på nytt
-      </button>
+      
 
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
@@ -187,6 +185,12 @@ export default function PlayerClient() {
           {error && <p style={{ color: "red" }}>{error}</p>}
         </>
       )}
+
+      <button onClick={hentPåNytt} style={{ marginBottom: "1rem" }}>
+        🔁 Hent sifre på nytt
+      </button>
+      
     </div>
   );
 }
+
