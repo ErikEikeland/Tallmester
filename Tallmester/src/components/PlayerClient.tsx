@@ -154,6 +154,12 @@ export default function PlayerClient() {
         {avatar} {name}
       </h2>
 
+       console.log("🎯 Viser hent-knapp", { digits, playerId });
+ <button onClick={hentPåNytt} style={{ marginBottom: "1rem", backgroundColor: "yellow" }}>
+   console.log("🧪 Klikket på hent-knapp");
+        🔁 Hent sifre på nytt
+      </button>
+
       {round !== null && <p>🔁 Runde {round + 1}</p>}
       <p>🎯 Poeng: {score}</p>
       <p>
@@ -166,11 +172,7 @@ export default function PlayerClient() {
       <p style={{ fontSize: "0.8em", color: "#888" }}>
         🔑 Din ID: {playerId}
       </p>
-      console.log("🎯 Viser hent-knapp", { digits, playerId });
- <button onClick={hentPåNytt} style={{ marginBottom: "1rem", backgroundColor: "yellow" }}>
-   console.log("🧪 Klikket på hent-knapp");
-        🔁 Hent sifre på nytt
-      </button>
+     
       
 
       {submitted ? (
@@ -195,6 +197,7 @@ export default function PlayerClient() {
     </div>
   );
 }
+
 
 
 
