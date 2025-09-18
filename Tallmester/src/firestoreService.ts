@@ -20,7 +20,7 @@ export async function createGame(gameConfig: any) {
   return docRef.id;
 }
 
-// ✅ Legger til en ny spiller i et spill
+// ✅ Legger til en ny spiller i et spill – med tomme digits som fylles inn senere
 export async function joinGame(
   gameId: string,
   playerName: string,
@@ -30,14 +30,16 @@ export async function joinGame(
   const docRef = await addDoc(playersRef, {
     name: playerName,
     avatar,
-    currentAnswer: "",
+    digits: [],
+    used: [],
+    currentAnswer: null,
     score: 0,
     hasSubmitted: false,
   });
   return docRef.id;
 }
 
-// ✅ Oppdaterer spillerens svar (brukes av mobilenheter)
+// ✅ Spilleren sender inn svaret sitt (fra mobilklient)
 export async function submitAnswer(
   gameId: string,
   playerId: string,
@@ -54,7 +56,7 @@ export async function submitAnswer(
   });
 }
 
-// ✅ Lytter på spillinfo (for f.eks. status)
+// ✅ Lytter på selve game-dokumentet (status, runde osv.)
 export function listenToGame(
   gameId: string,
   callback: (gameData: any) => void
@@ -64,7 +66,7 @@ export function listenToGame(
   });
 }
 
-// ✅ Endrer spillstatus OG legger til currentChallenge og startedAt
+// ✅ Oppdaterer spillstatus (runde, challenge osv.)
 export async function updateGameStatus(
   gameId: string,
   updates: Record<string, any>
@@ -73,27 +75,29 @@ export async function updateGameStatus(
   await updateDoc(gameRef, {
     ...updates,
     currentChallenge: {
-      digits: [1, 2, 3, 4], // ← Du kan gjøre dette dynamisk senere
-      limit: 30
+      digits: [1, 2, 3, 4], // Du kan gjøre dette dynamisk senere
+      limit: 30,
     },
-    startedAt: serverTimestamp()
+    startedAt: serverTimestamp(),
   });
 }
 
-
-// ✅ Lytter på spillere
+// ✅ Lytter på spiller-listen
 export function listenToPlayers(
   gameId: string,
   callback: (players: any[]) => void
 ) {
   const q = collection(db, "games", gameId, "players");
   return onSnapshot(q, (snapshot) => {
-    const players = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const players = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
     callback(players);
   });
 }
 
-// ✅ Lytter på svar fra spillere (alias for listenToPlayers, men filtrerer ut svar)
+// ✅ Lytter på bare svar fra spillerne (filterer ut currentAnswer)
 export function listenToAnswers(
   gameId: string,
   callback: (answers: any[]) => void
@@ -113,3 +117,15 @@ export function listenToAnswers(
   });
 }
 
+// 🆕 Synkroniserer oppdaterte sifre, score og brukte siffer etter hver runde
+export async function syncPlayers(gameId: string, players: any[]) {
+  const updates = players.map(async (player) => {
+    const ref = doc(db, "games", gameId, "players", player.id);
+    return updateDoc(ref, {
+      digits: player.digits || [],
+      used: player.used || [],
+      score: player.score ?? 0,
+    });
+  });
+  await Promise.all(updates);
+}
