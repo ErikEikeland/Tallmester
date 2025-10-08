@@ -5,7 +5,7 @@ import {
   submitAnswer,
   listenToGame,
   listenToPlayer,
-  getPlayerData, // 🆕
+  getPlayerData,
 } from "../firestoreService";
 
 export default function PlayerClient() {
@@ -32,17 +32,14 @@ export default function PlayerClient() {
     return true;
   };
 
-  // 👉 Last playerId fra localStorage ved refresh
+  // 🔁 Gjenopprett playerId ved refresh
   useEffect(() => {
     if (!gameId || playerId) return;
     const saved = localStorage.getItem(`tm:${gameId}:playerId`);
-    if (saved) {
-      console.log("🔁 Gjenoppretter playerId fra lagring:", saved);
-      setPlayerId(saved);
-    }
+    if (saved) setPlayerId(saved);
   }, [gameId, playerId]);
 
-  // 🔁 Lytt til runde-endring
+  // 🔁 Lytt til rundeendring
   useEffect(() => {
     if (!gameId) return;
     const unsubGame = listenToGame(gameId, (gameData) => {
@@ -56,13 +53,11 @@ export default function PlayerClient() {
     return () => unsubGame?.();
   }, [gameId, round]);
 
-  // ✅ Lytt til egen spiller – når playerId er tilgjengelig (etter join eller refresh)
+  // ✅ Lytt til egen spiller når playerId er tilgjengelig
   useEffect(() => {
     if (!gameId || !playerId) return;
-    console.log("🔗 Starter lytter på spiller", playerId);
     const unsub = listenToPlayer(gameId, playerId, (me) => {
       if (me) {
-        console.log("📲 Oppdaterer spiller:", me);
         setDigits(me.digits || []);
         setScore(me.score ?? 0);
       }
@@ -70,14 +65,10 @@ export default function PlayerClient() {
     return () => unsub?.();
   }, [gameId, playerId]);
 
-  // 🔁 Manuell fallback: hent spillerdata direkte fra Firestore
+  // 🔁 Manuell fallback: hent spillerdata direkte fra Firestore (ikke vist i UI)
   async function hentPåNytt() {
-    if (!gameId || !playerId) {
-      console.warn("🚫 Kan ikke hente – mangler gameId eller playerId");
-      return;
-    }
+    if (!gameId || !playerId) return;
     const data = await getPlayerData(gameId, playerId);
-    console.log("🔁 Manuell henting fra Firestore:", data);
     if (data) {
       setDigits(data.digits || []);
       setScore(data.score ?? 0);
@@ -91,7 +82,6 @@ export default function PlayerClient() {
       const id = await joinGame(gameId, name.trim(), avatar);
       setPlayerId(id);
       localStorage.setItem(`tm:${gameId}:playerId`, id);
-      console.log("✅ Bli med med id:", id);
     } else {
       setError("Skriv inn navn og velg avatar.");
     }
@@ -144,6 +134,7 @@ export default function PlayerClient() {
         </select>
         <br />
         <button onClick={handleJoin}>Bli med</button>
+        {error && <p style={{ color: "red" }}>{error}</p>}
       </div>
     );
   }
@@ -154,12 +145,6 @@ export default function PlayerClient() {
         {avatar} {name}
       </h2>
 
-       console.log("🎯 Viser hent-knapp", { digits, playerId });
- <button onClick={hentPåNytt} style={{ marginBottom: "1rem", backgroundColor: "yellow" }}>
-   console.log("🧪 Klikket på hent-knapp");
-        🔁 Hent sifre på nytt
-      </button>
-
       {round !== null && <p>🔁 Runde {round + 1}</p>}
       <p>🎯 Poeng: {score}</p>
       <p>
@@ -169,11 +154,7 @@ export default function PlayerClient() {
           : "Venter på tildeling fra lærer..."}
       </p>
 
-      <p style={{ fontSize: "0.8em", color: "#888" }}>
-        🔑 Din ID: {playerId}
-      </p>
-     
-      
+      <p style={{ fontSize: "0.8em", color: "#888" }}>🔑 Din ID: {playerId}</p>
 
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
@@ -191,12 +172,10 @@ export default function PlayerClient() {
           {error && <p style={{ color: "red" }}>{error}</p>}
         </>
       )}
-
-     
-      
     </div>
   );
 }
+
 
 
 
