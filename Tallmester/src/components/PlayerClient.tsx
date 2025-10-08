@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   joinGame,
@@ -7,6 +7,13 @@ import {
   listenToPlayer,
   getPlayerData,
 } from "../firestoreService";
+import {
+  getChallenge,
+  ruleBadges,
+  requiresEven,
+  requiresDivBy3,
+  requiresThreeDigits,
+} from "../model/challenges";
 
 export default function PlayerClient() {
   const [searchParams] = useSearchParams();
@@ -22,6 +29,9 @@ export default function PlayerClient() {
   const [score, setScore] = useState<number>(0);
   const [error, setError] = useState("");
 
+  const challenge = useMemo(() => getChallenge(round), [round]);
+  const badges = useMemo(() => (challenge ? ruleBadges(challenge.id) : []), [challenge]);
+
   const canUseDigits = (available: number[], request: number[]) => {
     const bag = [...available];
     for (const d of request) {
@@ -32,14 +42,14 @@ export default function PlayerClient() {
     return true;
   };
 
-  // 🔁 Gjenopprett playerId ved refresh
+  // Gjenopprett playerId ved refresh
   useEffect(() => {
     if (!gameId || playerId) return;
     const saved = localStorage.getItem(`tm:${gameId}:playerId`);
     if (saved) setPlayerId(saved);
   }, [gameId, playerId]);
 
-  // 🔁 Lytt til rundeendring
+  // Lytt til rundeendring
   useEffect(() => {
     if (!gameId) return;
     const unsubGame = listenToGame(gameId, (gameData) => {
@@ -53,7 +63,7 @@ export default function PlayerClient() {
     return () => unsubGame?.();
   }, [gameId, round]);
 
-  // ✅ Lytt til egen spiller når playerId er tilgjengelig
+  // Lytt til egen spiller når playerId er tilgjengelig
   useEffect(() => {
     if (!gameId || !playerId) return;
     const unsub = listenToPlayer(gameId, playerId, (me) => {
@@ -65,7 +75,7 @@ export default function PlayerClient() {
     return () => unsub?.();
   }, [gameId, playerId]);
 
-  // 🔁 Manuell fallback: hent spillerdata direkte fra Firestore (ikke vist i UI)
+  // Manuell fallback (ikke vist i UI)
   async function hentPåNytt() {
     if (!gameId || !playerId) return;
     const data = await getPlayerData(gameId, playerId);
@@ -87,6 +97,15 @@ export default function PlayerClient() {
     }
   }
 
+  // Klientside-sjekk i tråd med reglene brukt i TallmesterApp
+  function passesChallengeRules(value: number) {
+    if (!challenge) return true;
+    if (requiresEven(challenge.id) && value % 2 !== 0) return false;
+    if (requiresDivBy3(challenge.id) && value % 3 !== 0) return false;
+    if (requiresThreeDigits(challenge.id) && (value < 100 || value > 999)) return false;
+    return true;
+  }
+
   async function handleSubmit() {
     if (!answer) {
       setError("Du må skrive inn et tall.");
@@ -95,18 +114,42 @@ export default function PlayerClient() {
 
     const value = parseInt(answer, 10);
     const answerDigits = answer.split("").map(Number);
-    const valid =
-      !isNaN(value) &&
-      answerDigits.every((d) => d >= 0 && d <= 9) &&
-      canUseDigits(digits, answerDigits);
 
-    if (!valid) {
+    if (isNaN(value)) {
+      setError("Skriv inn et gyldig tall.");
+      return;
+    }
+
+    if (!passesChallengeRules(value)) {
+      // Gi konkrete, vennlige feilmeldinger
+      if (challenge) {
+        if (requiresEven(challenge.id)) {
+          setError("Oppgaven krever et partall.");
+          return;
+        }
+        if (requiresDivBy3(challenge.id)) {
+          setError("Oppgaven krever et tall som er delelig på 3.");
+          return;
+        }
+        if (requiresThreeDigits(challenge.id)) {
+          setError("Oppgaven krever et tresifret tall (100–999).");
+          return;
+        }
+      }
+      setError("Svaret møter ikke oppgavekravene.");
+      return;
+    }
+
+    const validDigits =
+      answerDigits.every((d) => d >= 0 && d <= 9) && canUseDigits(digits, answerDigits);
+
+    if (!validDigits) {
       setError("Ugyldig svar – sjekk at du bruker riktige sifre.");
       return;
     }
 
     if (gameId && playerId) {
-      const answerObj = { value, digits: answerDigits, valid };
+      const answerObj = { value, digits: answerDigits, valid: true };
       await submitAnswer(gameId, playerId, answerObj);
       setSubmitted(true);
       setError("");
@@ -140,21 +183,50 @@ export default function PlayerClient() {
   }
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>
+    <div style={{ padding: "1rem", display: "grid", gap: "0.75rem" }}>
+      <h2 style={{ marginBottom: 0 }}>
         {avatar} {name}
       </h2>
 
-      {round !== null && <p>🔁 Runde {round + 1}</p>}
-      <p>🎯 Poeng: {score}</p>
-      <p>
-        🔢 Tilgjengelige sifre:{" "}
-        {digits.length > 0
-          ? digits.join(", ")
-          : "Venter på tildeling fra lærer..."}
-      </p>
+      {/* Oppgavekortet for runden */}
+      {challenge ? (
+        <div style={{ border: "1px dashed #bbb", borderRadius: 12, padding: "0.75rem" }}>
+          <div style={{ fontWeight: 700 }}>
+            Runde {round! + 1}: {challenge.title}
+          </div>
+          <div style={{ fontStyle: "italic", marginTop: 4 }}>{challenge.description}</div>
+          {badges.length > 0 && (
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              {badges.map((b) => (
+                <span
+                  key={b}
+                  style={{
+                    fontSize: "0.8rem",
+                    border: "1px solid #ddd",
+                    borderRadius: 999,
+                    padding: "2px 10px",
+                  }}
+                >
+                  {b}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p>Venter på rundedata …</p>
+      )}
 
-      <p style={{ fontSize: "0.8em", color: "#888" }}>🔑 Din ID: {playerId}</p>
+      <div>🎯 Poeng: {score}</div>
+
+      <div>
+        🔢 Tilgjengelige sifre:{" "}
+        {digits.length > 0 ? digits.join(", ") : "Venter på tildeling fra lærer..."}
+      </div>
+
+      <p style={{ fontSize: "0.8em", color: "#888", marginTop: 0 }}>
+        🔑 Din ID: {playerId}
+      </p>
 
       {submitted ? (
         <p>✅ Svaret ditt er sendt inn!</p>
@@ -166,15 +238,19 @@ export default function PlayerClient() {
             onChange={(e) => {
               const clean = e.target.value.replace(/\D/g, "");
               setAnswer(clean);
+              if (error) setError("");
             }}
           />
-          <button onClick={handleSubmit}>Send inn</button>
+          <button onClick={handleSubmit} disabled={!answer}>
+            Send inn
+          </button>
           {error && <p style={{ color: "red" }}>{error}</p>}
         </>
       )}
     </div>
   );
 }
+
 
 
 
