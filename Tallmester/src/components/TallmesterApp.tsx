@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { updateGameStatus, syncPlayers } from "../firestoreService"; // 🆕
+import { updateGameStatus, syncPlayers } from "../firestoreService";
 import { v4 as uuidv4 } from "uuid";
+import { CHALLENGES } from "../model/challenges";  // 👈 ny import
 
 interface Player {
   id: string;
@@ -49,15 +50,10 @@ export default function TallmesterApp({
   const [roundPoints, setRoundPoints] = useState<number[]>([]);
   const processedAnswersRef = useRef<Set<string>>(new Set());
 
-  const initialChallenges = [
-    { id: 1, title: "Høyeste tall", description: "Lag det høyeste mulige tallet", points: [3, 2, 1, 0] },
-    { id: 2, title: "Laveste unike partall", description: "Laveste tall unike partall", points: [4, 2, 1, 0] },
-    { id: 3, title: "Nærmest 5000", description: "Lag tallet nærmest 5000", points: [5, 3, 2, 0] },
-    { id: 4, title: "Høyeste delelig på 3", description: "Høyest tall som er delelig på 3", points: [4, 2, 1, 0] },
-    { id: 5, title: "Størst tresifret", description: "Lag størst mulig tresifret tall", points: [3, 2, 1, 0] },
-  ];
-
+  // 👇 bruk felles utfordringsliste
+  const initialChallenges = CHALLENGES;
   const challenge = initialChallenges[round];
+
 
   // ✅ Start spill og synkroniser sifre med Firestore før første runde
   useEffect(() => {
@@ -335,5 +331,6 @@ export default function TallmesterApp({
     </div>
   );
 }
+
 
 
