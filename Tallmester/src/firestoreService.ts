@@ -5,13 +5,12 @@ import {
   updateDoc,
   onSnapshot,
   addDoc,
+  getDoc,
   serverTimestamp,
-  query,
-  where,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// ✅ Oppretter nytt spill og returnerer gameId
+/* 🎯 Oppretter nytt spill og returnerer gameId */
 export async function createGame(gameConfig: any) {
   const docRef = await addDoc(collection(db, "games"), {
     ...gameConfig,
@@ -20,7 +19,7 @@ export async function createGame(gameConfig: any) {
   return docRef.id;
 }
 
-// ✅ Legger til en ny spiller i et spill – med tomme digits som fylles inn senere
+/* 🧙‍♂️ Legger til ny spiller i et spill – starter med tomme sifre */
 export async function joinGame(
   gameId: string,
   playerName: string,
@@ -39,7 +38,7 @@ export async function joinGame(
   return docRef.id;
 }
 
-// ✅ Spilleren sender inn svaret sitt (fra mobilklient)
+/* ✏️ Spilleren sender inn svaret sitt (fra mobilklient) */
 export async function submitAnswer(
   gameId: string,
   playerId: string,
@@ -56,17 +55,17 @@ export async function submitAnswer(
   });
 }
 
-// ✅ Lytter på selve game-dokumentet (status, runde osv.)
+/* 👁️ Lytter på game-dokumentet (status, runde, utfordring, osv.) */
 export function listenToGame(
   gameId: string,
   callback: (gameData: any) => void
 ) {
-  return onSnapshot(doc(db, "games", gameId), (doc) => {
-    callback(doc.data());
+  return onSnapshot(doc(db, "games", gameId), (docSnap) => {
+    callback(docSnap.data());
   });
 }
 
-// ✅ Oppdaterer spillstatus (runde, challenge osv.)
+/* ⚙️ Oppdaterer spillstatus og legger til metadata */
 export async function updateGameStatus(
   gameId: string,
   updates: Record<string, any>
@@ -75,14 +74,14 @@ export async function updateGameStatus(
   await updateDoc(gameRef, {
     ...updates,
     currentChallenge: {
-      digits: [1, 2, 3, 4], // Du kan gjøre dette dynamisk senere
+      digits: [1, 2, 3, 4], // TODO: Gjør dynamisk senere
       limit: 30,
     },
     startedAt: serverTimestamp(),
   });
 }
 
-// ✅ Lytter på spiller-listen
+/* 👥 Lytter på alle spillere i et spill */
 export function listenToPlayers(
   gameId: string,
   callback: (players: any[]) => void
@@ -97,7 +96,7 @@ export function listenToPlayers(
   });
 }
 
-// ✅ Lytter på bare svar fra spillerne (filterer ut currentAnswer)
+/* 📨 Lytter på svarene (for lærervisning) */
 export function listenToAnswers(
   gameId: string,
   callback: (answers: any[]) => void
@@ -117,7 +116,7 @@ export function listenToAnswers(
   });
 }
 
-// 🆕 Synkroniserer oppdaterte sifre, score og brukte siffer etter hver runde
+/* 🔄 Synkroniserer sifre, poeng og brukte siffer etter hver runde */
 export async function syncPlayers(gameId: string, players: any[]) {
   const updates = players.map(async (player) => {
     const ref = doc(db, "games", gameId, "players", player.id);
@@ -130,7 +129,7 @@ export async function syncPlayers(gameId: string, players: any[]) {
   await Promise.all(updates);
 }
 
-// ✅ NY: Lytter på én spesifikk spiller
+/* 👤 Lytter på én spesifikk spiller (f.eks. fra mobilklient) */
 export function listenToPlayer(
   gameId: string,
   playerId: string,
@@ -146,3 +145,21 @@ export function listenToPlayer(
     callback({ id: snap.id, ...snap.data() });
   });
 }
+
+/* 🧩 Henter spillerdata manuelt (fallback hvis lytter feiler) */
+export async function getPlayerData(gameId: string, playerId: string) {
+  try {
+    const ref = doc(db, "games", gameId, "players", playerId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      return snap.data();
+    } else {
+      console.warn("🚫 Fant ikke spiller i databasen:", playerId);
+      return null;
+    }
+  } catch (err) {
+    console.error("🔥 Feil ved henting av spillerdata:", err);
+    return null;
+  }
+}
+
